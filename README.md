@@ -13,6 +13,7 @@ The renderer uses Marked.js to parse Markdown and DOMPurify to sanitize generate
 - Clicking a table-of-contents entry scrolls to the corresponding heading
 - Individually collapses table-of-contents entries that contain child headings
 - Embeds relative images specified with Markdown image syntax into the generated HTML
+- Opens links to local Markdown files in the same directory without leaving the viewer
 - Sanitizes generated HTML with DOMPurify
 - Supports UTF-8 (including BOM) and the Windows system code page
 - Limits input Markdown files to 32 MiB and generated HTML to 64 MiB
@@ -24,7 +25,7 @@ The renderer uses Marked.js to parse Markdown and DOMPurify to sanitize generate
 - Microsoft Edge WebView2 Runtime
 - `markdown_hsp.dll` and `webview2_hsp.dll` matching the HSP3 runtime architecture
 
-Relative images specified with Markdown image syntax are embedded in the generated HTML as data URLs, so this module does not depend on a virtual-host mapping function in the WebView2 DLL. External image URLs are kept unchanged. For security, only local images within the Markdown file's directory are embedded. Relative links resolve to `file:` URLs, but navigation to local files may be restricted by WebView2 security settings.
+Relative images specified with Markdown image syntax are embedded in the generated HTML as data URLs, so this module does not depend on a virtual-host mapping function in the WebView2 DLL. External image URLs are kept unchanged. For security, only local images within the Markdown file's directory are embedded. Links to local Markdown files in the same directory switch the displayed document in place. Other relative links resolve to `file:` URLs, but navigation to local files may be restricted by WebView2 security settings.
 
 ## Files
 

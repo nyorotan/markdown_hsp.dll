@@ -199,6 +199,94 @@ func markdownImageDataURLs(markdown, directory string) ([][]string, error) {
 	return result, nil
 }
 
+func linkedMarkdownSources(markdown, currentPath string) (map[string]string, error) {
+	root, err := filepath.EvalSymlinks(filepath.Dir(currentPath))
+	if err != nil {
+		return nil, fmt.Errorf("resolve Markdown directory symlinks: %w", err)
+	}
+
+	type source struct {
+		markdown string
+	}
+	sources := []source{{markdown: markdown}}
+	visited := map[string]string{currentPath: markdown}
+	linked := make(map[string]string)
+	totalBytes := len(markdown)
+
+	for index := 0; index < len(sources); index++ {
+		current := sources[index]
+		document := goldmark.New().Parser().Parse(text.NewReader([]byte(current.markdown)))
+		if err := ast.Walk(document, func(node ast.Node, entering bool) (ast.WalkStatus, error) {
+			if !entering {
+				return ast.WalkContinue, nil
+			}
+			link, ok := node.(*ast.Link)
+			if !ok {
+				return ast.WalkContinue, nil
+			}
+			destination := string(link.Destination)
+			parsed, err := url.Parse(destination)
+			if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Path == "" || !strings.EqualFold(filepath.Ext(parsed.Path), ".md") {
+				return ast.WalkContinue, nil
+			}
+			relativePath, err := url.PathUnescape(parsed.Path)
+			if err != nil {
+				return ast.WalkContinue, nil
+			}
+			targetPath, err := filepath.Abs(filepath.Join(root, filepath.FromSlash(relativePath)))
+			if err != nil {
+				return ast.WalkContinue, fmt.Errorf("resolve linked Markdown path: %w", err)
+			}
+			relativeToRoot, err := filepath.Rel(root, targetPath)
+			if err != nil || relativeToRoot == ".." || strings.HasPrefix(relativeToRoot, ".."+string(filepath.Separator)) {
+				return ast.WalkContinue, nil
+			}
+			targetPath, err = filepath.EvalSymlinks(targetPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return ast.WalkContinue, nil
+				}
+				return ast.WalkContinue, fmt.Errorf("resolve linked Markdown symlinks: %w", err)
+			}
+			relativeToRoot, err = filepath.Rel(root, targetPath)
+			if err != nil || relativeToRoot == ".." || strings.HasPrefix(relativeToRoot, ".."+string(filepath.Separator)) {
+				return ast.WalkContinue, nil
+			}
+			if filepath.Dir(relativeToRoot) != "." {
+				return ast.WalkContinue, nil
+			}
+
+			if linkedSource, ok := visited[targetPath]; ok {
+				linked[destination] = linkedSource
+				return ast.WalkContinue, nil
+			}
+
+			data, err := os.ReadFile(targetPath)
+			if err != nil {
+				if os.IsNotExist(err) {
+					return ast.WalkContinue, nil
+				}
+				return ast.WalkContinue, fmt.Errorf("read linked Markdown file: %w", err)
+			}
+			totalBytes += len(data)
+			if totalBytes > maxMarkdownBytes {
+				return ast.WalkStop, fmt.Errorf("linked Markdown files exceed %d bytes", maxMarkdownBytes)
+			}
+			linkedMarkdown, err := decodeMarkdown(data)
+			if err != nil {
+				return ast.WalkStop, err
+			}
+			visited[targetPath] = linkedMarkdown
+			sources = append(sources, source{markdown: linkedMarkdown})
+			linked[destination] = linkedMarkdown
+			return ast.WalkContinue, nil
+		}); err != nil {
+			return nil, fmt.Errorf("parse linked Markdown files: %w", err)
+		}
+	}
+	return linked, nil
+}
+
 func convertMarkdownFile(path string) ([]byte, error) {
 	if err := loadLibraries(); err != nil {
 		return nil, err
@@ -226,9 +314,32 @@ func convertMarkdownFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	linkedMarkdown, err := linkedMarkdownSources(markdown, absolutePath)
+	if err != nil {
+		return nil, err
+	}
+	for _, linkedSource := range linkedMarkdown {
+		linkedImages, err := markdownImageDataURLs(linkedSource, filepath.Dir(absolutePath))
+		if err != nil {
+			return nil, err
+		}
+		imageDataURLs = append(imageDataURLs, linkedImages...)
+	}
+	imageDataURLMap := make(map[string]string, len(imageDataURLs))
+	for _, image := range imageDataURLs {
+		imageDataURLMap[image[0]] = image[1]
+	}
+	imageDataURLs = imageDataURLs[:0]
+	for destination, dataURL := range imageDataURLMap {
+		imageDataURLs = append(imageDataURLs, []string{destination, dataURL})
+	}
 	imageDataURLsJSON, err := json.Marshal(imageDataURLs)
 	if err != nil {
 		return nil, fmt.Errorf("encode Markdown images: %w", err)
+	}
+	linkedMarkdownJSON, err := json.Marshal(linkedMarkdown)
+	if err != nil {
+		return nil, fmt.Errorf("encode linked Markdown files: %w", err)
 	}
 
 	baseURL := html.EscapeString(markdownBaseURL(filepath.Dir(absolutePath)))
@@ -270,19 +381,25 @@ table { border-collapse: collapse; } th, td { border: 1px solid #d0d7de; padding
 <script>
 const markdown = %s;
 const imageDataURLs = new Map(%s);
-const rendered = globalThis.marked.parse(markdown);
 const content = document.getElementById("content");
-content.innerHTML = globalThis.DOMPurify.sanitize(rendered);
-content.querySelectorAll("img").forEach(image => {
-    const dataURL = imageDataURLs.get(image.getAttribute("src"));
-    if (dataURL) {
-        image.src = dataURL;
+const linkedMarkdown = %s;
+const toc = document.getElementById("toc");
+function renderMarkdown(source) {
+    content.innerHTML = globalThis.DOMPurify.sanitize(globalThis.marked.parse(source));
+    toc.replaceChildren();
+    content.querySelectorAll("img").forEach(image => {
+        const dataURL = imageDataURLs.get(image.getAttribute("src"));
+        if (dataURL) {
+            image.src = dataURL;
+        }
+    });
+    const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6");
+    if (headings.length === 0) {
+        toc.hidden = true;
+        return;
     }
-});
-const headings = content.querySelectorAll("h1, h2, h3, h4, h5, h6");
-if (headings.length > 0) {
     const usedIds = new Set(Array.from(content.querySelectorAll("[id]"), element => element.id));
-    const toc = document.getElementById("toc");
+    toc.hidden = false;
     const tocTitle = document.createElement("strong");
     tocTitle.textContent = "目次";
     toc.appendChild(tocTitle);
@@ -367,11 +484,27 @@ if (headings.length > 0) {
         });
         tocItem.item.insertBefore(toggle, tocItem.link);
     });
-    toc.hidden = false;
 }
+content.addEventListener("click", event => {
+    const anchor = event.target instanceof Element ? event.target.closest("a") : null;
+    if (!anchor || !content.contains(anchor)) {
+        return;
+    }
+    const destination = anchor.getAttribute("href");
+    if (Object.prototype.hasOwnProperty.call(linkedMarkdown, destination)) {
+        event.preventDefault();
+        const activeElement = document.activeElement;
+        if (activeElement && content.contains(activeElement)) {
+            activeElement.blur();
+        }
+        const source = linkedMarkdown[destination];
+        window.setTimeout(() => renderMarkdown(source), 0);
+    }
+});
+renderMarkdown(markdown);
 </script>
 </body>
-</html>`, baseURL, title, markedJS, purifyJS, markdownJSON, imageDataURLsJSON)
+</html>`, baseURL, title, markedJS, purifyJS, markdownJSON, imageDataURLsJSON, linkedMarkdownJSON)
 	result := []byte(page)
 	if len(result) > maxHTMLBytes {
 		return nil, fmt.Errorf("converted HTML exceeds %d bytes", maxHTMLBytes)
