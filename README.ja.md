@@ -13,6 +13,7 @@ Markdownの解析にはMarked.js、生成HTMLのサニタイズにはDOMPurify�
 - 目次のクリックで該当する見出しへ移動
 - 子項目を持つ目次項目を個別に折りたたみ
 - Markdown形式で指定された相対画像を読み込み、HTMLへ埋め込み
+- 同じフォルダー内のMarkdownファイルへのリンクをビューア内で表示切り替え
 - DOMPurifyによる生成HTMLのサニタイズ
 - UTF-8（BOM付き含む）およびWindowsのシステムコードページのMarkdownに対応
 - 入力ファイルは最大32 MiB、生成HTMLは最大64 MiB
@@ -24,7 +25,7 @@ Markdownの解析にはMarked.js、生成HTMLのサニタイズにはDOMPurify�
 - Microsoft Edge WebView2 Runtime
 - HSP3ランタイムとビット数が一致する `markdown_hsp.dll` および `webview2_hsp.dll`
 
-Markdown形式で指定された相対画像はMarkdown DLLがデータURLとしてHTMLへ埋め込むため、WebView2 DLLの仮想ホスト登録関数には依存しません。外部画像URLはそのまま使用します。ローカル画像はMarkdownファイルのフォルダー内にあるものだけを埋め込みます。相対リンクは `file:` URLになりますが、ローカルファイルへの遷移はWebView2のセキュリティ設定により制限される場合があります。
+Markdown形式で指定された相対画像はMarkdown DLLがデータURLとしてHTMLへ埋め込むため、WebView2 DLLの仮想ホスト登録関数には依存しません。外部画像URLはそのまま使用します。ローカル画像はMarkdownファイルのフォルダー内にあるものだけを埋め込みます。同じフォルダー内のMarkdownファイルへのリンクは、ビューア内で表示を切り替えます。それ以外の相対リンクは `file:` URLになりますが、ローカルファイルへの遷移はWebView2のセキュリティ設定により制限される場合があります。
 
 ## ファイル
 
