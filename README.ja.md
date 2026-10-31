@@ -63,4 +63,13 @@ build_markdown.bat
 
 ## ライセンス
 
-プロジェクトはMIT Licenseで公開されています。Marked.jsとDOMPurifyのライセンス表記は `markdown_dll/assets/markdown/` 内の各ライセンスファイルを参照してください。
+本プロジェクトは`MITライセンス`の元で公開されています。商用・非商用問わず自由にご利用ください。
+
+Marked.jsとDOMPurifyのライセンス表記は `markdown_dll/assets/markdown/` 内の各ライセンスファイルを参照してください。
+
+- **著作権**: © 2026 nyorotan
+
+## バージョン情報
+
+- **バージョン**: v1.0.0
+- **作者**: nyorotan

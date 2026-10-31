@@ -63,4 +63,13 @@ For 64-bit HSP3, use 64-bit MinGW-w64 GCC and build with `GOARCH=amd64` and the 
 
 ## License
 
-This project is released under the MIT License. Refer to the license files in `markdown_dll/assets/markdown/` for Marked.js and DOMPurify.
+This project is released under the `MIT License`. Feel free to use it for both commercial and non-commercial purposes.
+
+Refer to the license files in `markdown_dll/assets/markdown/` for Marked.js and DOMPurify.
+
+- **Copyright**: © 2026 nyorotan
+
+## Version Information
+
+- **Version**: v1.0.0
+- **Author**: nyorotan
