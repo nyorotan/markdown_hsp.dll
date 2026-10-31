@@ -45,7 +45,7 @@ WebView2の作成後、次のように初期化してMarkdownファイルを表�
     wv2_markdown_init id
     if stat == 0 : dialog "Markdown DLL initialization failed.", 1
 
-    wv2_show_markdown id, "docs\\guide.md"
+    wv2_show_markdown id, "README.md"
     if stat == 0 : dialog "Markdown file could not be displayed.", 1
 ```
 
