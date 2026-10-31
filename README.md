@@ -45,7 +45,7 @@ After creating a WebView2 instance, initialize the Markdown module and display a
     wv2_markdown_init id
     if stat == 0 : dialog "Markdown DLL initialization failed.", 1
 
-    wv2_show_markdown id, "docs\\guide.md"
+    wv2_show_markdown id, "README.md"
     if stat == 0 : dialog "Markdown file could not be displayed.", 1
 ```
 
